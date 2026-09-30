@@ -75,7 +75,7 @@ footer{padding:18px var(--gutter);border-top:1px solid var(--line)}
   const form = document.getElementById("f"), input = document.getElementById("p"),
         button = document.getElementById("b"), err = document.getElementById("e");
 
-  const appBytes = fetch(BASE + "app.bin").then((r) => {
+  const appBytes = fetch(BASE + "app.bin", { cache: "no-cache" }).then((r) => {
     if (!r.ok) throw new Error("load");
     return r.arrayBuffer();
   });
