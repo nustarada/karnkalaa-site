@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<meta name="robots" content="noindex, nofollow, noarchive" />
+<title>Karan Gadhave - Private work</title>
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style id="gate-style">
+@font-face{font-family:'Cabinet Grotesk';font-weight:700;font-display:swap;src:url('/fonts/cabinet-grotesk-700.woff2') format('woff2')}
+@font-face{font-family:'Switzer';font-weight:400;font-display:swap;src:url('/fonts/switzer-400.woff2') format('woff2')}
+@font-face{font-family:'Switzer';font-weight:500;font-display:swap;src:url('/fonts/switzer-500.woff2') format('woff2')}
+:root{--paper:#F7F5F2;--ink:#141414;--mut:#8A8580;--soft:#514C46;--line:rgba(20,20,20,.14);--rule:rgba(20,20,20,.9);--accent:#E1541B;--gutter:clamp(16px,2.6vw,48px)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100vh;min-height:100svh;display:grid;grid-template-rows:auto 1fr auto;background:var(--paper);color:var(--ink);font-family:'Switzer',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body[data-state="checking"] main{visibility:hidden}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px var(--gutter);border-bottom:1px solid var(--line)}
+header img{width:34px;height:34px;display:block;filter:brightness(0)}
+header a.back,footer{font:500 11px 'DM Mono',ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);text-decoration:none}
+header a.back:hover{color:var(--accent)}
+main{display:grid;place-items:center;padding:56px var(--gutter)}
+.card{width:min(100%,440px)}
+.k{display:inline-block;font:500 11px 'DM Mono',ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;color:#fff;background:var(--accent);padding:7px 11px;margin:0 0 26px}
+h1{font:700 clamp(30px,6vw,44px)/1.06 'Cabinet Grotesk','Switzer',system-ui,sans-serif;letter-spacing:-.034em;margin:0}
+.d{font-size:16px;line-height:1.6;color:var(--soft);margin:16px 0 0}
+form{margin:34px 0 0}
+label{display:block;font:500 10px 'DM Mono',ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);margin:0 0 9px}
+input{display:block;width:100%;height:54px;padding:0 16px;font:400 16px 'Switzer',system-ui,sans-serif;color:var(--ink);background:#fff;border:1px solid var(--rule);border-radius:0;outline:none;-webkit-appearance:none;appearance:none}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+button{display:block;width:100%;height:54px;margin:12px 0 0;border:0;border-radius:0;cursor:pointer;font:500 12px 'DM Mono',ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;color:#fff;background:var(--accent);transition:background .25s}
+button:hover{background:var(--ink)}
+button:disabled{background:var(--mut);cursor:default}
+.err{min-height:18px;margin:14px 0 0;font:500 11px 'DM Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+footer{padding:18px var(--gutter);border-top:1px solid var(--line)}
+</style>
+</head>
+<body data-state="checking">
+<header>
+  <a href="/" aria-label="Karan Gadhave, home"><img src="/private/mark.png" alt="Karan Gadhave" /></a>
+  <a class="back" href="/">Back to site</a>
+</header>
+<main>
+  <div class="card">
+    <p class="k">Private</p>
+    <h1>This work is shared by invitation.</h1>
+    <p class="d">The case studies cover client work, so they sit behind a password. Enter the one you were sent.</p>
+    <form id="f" autocomplete="on">
+      <label for="p">Password</label>
+      <input id="p" name="password" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required />
+      <button id="b" type="submit">Unlock</button>
+      <p class="err" id="e" role="alert" aria-live="polite"></p>
+    </form>
+  </div>
+</main>
+<footer>Karan Gadhave</footer>
+<script>
+(() => {
+  /* Everything under /private/ is AES-GCM ciphertext. The key comes from the
+     password through PBKDF2, so nothing here, and nothing on the server,
+     can open the files without it. A wrong password fails the
+     authentication tag rather than producing garbage. */
+  const META = { salt: "986073b6df06a8b0b901ceeb739d3c95", iter: 600000 };
+  const BASE = "/private/";
+  const SESSION = "kg.vault";
+  const te = new TextEncoder(), td = new TextDecoder();
+  const hex = (h) => Uint8Array.from(h.match(/../g), (x) => parseInt(x, 16));
+  const b64e = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
+  const b64d = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", avif: "image/avif", gif: "image/gif", svg: "image/svg+xml", webm: "video/webm", mp4: "video/mp4" };
+
+  const form = document.getElementById("f"), input = document.getElementById("p"),
+        button = document.getElementById("b"), err = document.getElementById("e");
+
+  const appBytes = fetch(BASE + "app.bin").then((r) => {
+    if (!r.ok) throw new Error("load");
+    return r.arrayBuffer();
+  });
+  appBytes.catch(() => {});
+
+  async function masterFrom(password) {
+    const k = await crypto.subtle.importKey("raw", te.encode(password.normalize("NFKC").trim()), "PBKDF2", false, ["deriveBits"]);
+    return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: hex(META.salt), iterations: META.iter }, k, 256);
+  }
+  async function keyFrom(master) {
+    const hk = await crypto.subtle.importKey("raw", master, "HKDF", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: te.encode("kg-vault/enc") },
+      hk, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  }
+  const open = (key, buf) => {
+    const u = new Uint8Array(buf);
+    return crypto.subtle.decrypt({ name: "AES-GCM", iv: u.subarray(0, 12) }, key, u.subarray(12));
+  };
+
+  /* The app refers to every image and video as vault:<hash>.<ext>, because
+     no readable file exists at any URL. This swaps each reference for a
+     decrypted blob, as the element appears and as it nears the viewport. */
+  function startAssets(key) {
+    const cache = new Map();
+    const resolve = (name) => {
+      if (!cache.has(name)) {
+        const dot = name.lastIndexOf(".");
+        const id = name.slice(0, dot), type = TYPES[name.slice(dot + 1).toLowerCase()] || "application/octet-stream";
+        cache.set(name, fetch(BASE + "a/" + id + ".bin")
+          .then((r) => { if (!r.ok) throw new Error("asset"); return r.arrayBuffer(); })
+          .then((buf) => open(key, buf))
+          .then((plain) => URL.createObjectURL(new Blob([plain], { type }))));
+      }
+      return cache.get(name);
+    };
+
+    const waiting = new Map(), seen = new WeakSet();
+    const io = "IntersectionObserver" in window
+      ? new IntersectionObserver((entries) => {
+          for (const e of entries) {
+            if (!e.isIntersecting) continue;
+            io.unobserve(e.target); seen.add(e.target);
+            const jobs = waiting.get(e.target); waiting.delete(e.target);
+            if (jobs) jobs.forEach((run) => run());
+          }
+        }, { rootMargin: "900px 0px" })
+      : null;
+
+    const swap = (el, attr, name) => {
+      const run = () => resolve(name).then((url) => {
+        if (el.getAttribute(attr) === "vault:" + name) el.setAttribute(attr, url);
+      }).catch(() => {});
+      /* A row that scrolls sideways is judged as one unit, or the screens
+         past its edge would wait until they were swiped into view. Failing
+         that, the nearest ancestor with a size: an image that has not loaded
+         has no height, and a box with no area inside a frame that clips its
+         overflow is never reported as on screen. */
+      let target = el.closest(".pf-phones,.pf-collage-track,.pf-stage");
+      if (!target) {
+        target = el;
+        while (target.parentElement && target !== document.body && (!target.offsetWidth || !target.offsetHeight)) target = target.parentElement;
+      }
+      const lazy = io && attr === "src" && el.tagName === "IMG" && el.loading === "lazy";
+      if (!lazy || seen.has(target)) return run();
+      if (!waiting.has(target)) { waiting.set(target, new Map()); io.observe(target); }
+      waiting.get(target).set(el, run);
+    };
+    const check = (el) => {
+      if (el.nodeType !== 1) return;
+      for (const attr of ["src", "poster"]) {
+        const v = el.getAttribute(attr);
+        if (v && v.startsWith("vault:")) swap(el, attr, v.slice(6));
+      }
+    };
+    new MutationObserver((muts) => {
+      for (const m of muts) {
+        if (m.type === "attributes") check(m.target);
+        else m.addedNodes.forEach((n) => {
+          if (n.nodeType !== 1) return;
+          check(n);
+          n.querySelectorAll('[src^="vault:"],[poster^="vault:"]').forEach(check);
+        });
+      }
+    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["src", "poster"] });
+  }
+
+  async function boot(key, plain) {
+    const app = JSON.parse(td.decode(plain));
+    startAssets(key);
+    document.getElementById("gate-style").remove();
+    const style = document.createElement("style");
+    style.textContent = app.css + '\nimg[src^="vault:"]{visibility:hidden}';
+    document.head.appendChild(style);
+    document.title = "Karan Gadhave - Work";
+    const root = document.createElement("div");
+    root.id = "root";
+    document.body.removeAttribute("data-state");
+    document.body.replaceChildren(root);
+    await import(URL.createObjectURL(new Blob([app.js], { type: "text/javascript" })));
+  }
+
+  async function tryMaster(master) {
+    const key = await keyFrom(master);
+    const plain = await open(key, await appBytes);
+    return { key, plain };
+  }
+
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    err.textContent = "";
+    button.disabled = true; button.textContent = "Unlocking";
+    try {
+      const master = await masterFrom(input.value);
+      let opened;
+      try { opened = await tryMaster(master); }
+      catch (e) {
+        await appBytes;               /* rethrows if the file never arrived */
+        throw new Error("password");
+      }
+      try { sessionStorage.setItem(SESSION, b64e(master)); } catch (e) {}
+      await boot(opened.key, opened.plain);
+    } catch (e) {
+      err.textContent = e && e.message === "password"
+        ? "That password did not work."
+        : "Could not load the work. Check your connection and try again.";
+      button.disabled = false; button.textContent = "Unlock";
+      input.select();
+    }
+  });
+
+  /* a reload, or a link opened in the same tab, should not ask again */
+  (async () => {
+    let saved = null;
+    try { saved = sessionStorage.getItem(SESSION); } catch (e) {}
+    if (saved) {
+      try {
+        const opened = await tryMaster(b64d(saved));
+        await boot(opened.key, opened.plain);
+        return;
+      } catch (e) {
+        try { sessionStorage.removeItem(SESSION); } catch (e2) {}
+      }
+    }
+    document.body.setAttribute("data-state", "locked");
+    input.focus();
+  })();
+})();
+</script>
+</body>
+</html>
